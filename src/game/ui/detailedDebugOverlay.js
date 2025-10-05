@@ -213,17 +213,22 @@ export function initDebugOverlay({
               }
             }
             if (ratio == null) {
-              const startRatio = typeof C.ENEMY_SPEED_START_RATIO === 'number'
+              const startRatio = typeof C.ENEMY_SPEED_START_RATIO === 'number' && C.ENEMY_SPEED_START_RATIO > 0
                 ? C.ENEMY_SPEED_START_RATIO
                 : 0.60;
               const growth = typeof C.ENEMY_SPEED_GROWTH_PER_LEVEL === 'number'
                 ? C.ENEMY_SPEED_GROWTH_PER_LEVEL
                 : 0.05;
-              const maxRatio = typeof C.ENEMY_SPEED_MAX_RATIO === 'number'
+              const growthFactorRaw = 1 + growth;
+              const growthFactor = Number.isFinite(growthFactorRaw) && growthFactorRaw > 0
+                ? growthFactorRaw
+                : 1.05;
+              const maxRatio = typeof C.ENEMY_SPEED_MAX_RATIO === 'number' && C.ENEMY_SPEED_MAX_RATIO > 0
                 ? C.ENEMY_SPEED_MAX_RATIO
                 : 1.0;
               const steps = Math.max(0, Math.floor(lvlNum) - 1);
-              ratio = Math.min(maxRatio, startRatio + (growth * steps));
+              const scaled = startRatio * (growthFactor ** steps);
+              ratio = Math.min(maxRatio, Number.isFinite(scaled) && scaled > 0 ? scaled : startRatio);
             }
             eSpeedVal = ratio * pSpeed;
           }

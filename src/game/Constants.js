@@ -29,14 +29,31 @@ export const DIR_DELTAS = {
   left: [-1, 0]
 };
 export const MAX_SUBSTEPS = 4;
-// Precompute the additive 5% growth curve so every consumer shares the same table.
+// Precompute the multiplicative 5% growth curve so every consumer shares the same table.
 const ENEMY_SPEED_RATIO_TABLE = (() => {
   const table = new Array(MAX_LEVEL);
+  const startRatio = (typeof ENEMY_SPEED_START_RATIO === 'number' && ENEMY_SPEED_START_RATIO > 0)
+    ? ENEMY_SPEED_START_RATIO
+    : 0.60;
+  const growthPerLevel = (typeof ENEMY_SPEED_GROWTH_PER_LEVEL === 'number')
+    ? ENEMY_SPEED_GROWTH_PER_LEVEL
+    : 0.05;
+  const growthFactorRaw = 1 + growthPerLevel;
+  const growthFactor = (Number.isFinite(growthFactorRaw) && growthFactorRaw > 0)
+    ? growthFactorRaw
+    : 1.05;
+  const maxRatio = (typeof ENEMY_SPEED_MAX_RATIO === 'number' && ENEMY_SPEED_MAX_RATIO > 0)
+    ? ENEMY_SPEED_MAX_RATIO
+    : 1.0;
   for (let i = 0; i < MAX_LEVEL; i += 1) {
-    const steps = i;
-    const rawRatio = ENEMY_SPEED_START_RATIO + (ENEMY_SPEED_GROWTH_PER_LEVEL * steps);
-    const ratio = Math.min(ENEMY_SPEED_MAX_RATIO, rawRatio);
-    table[i] = Number.isFinite(ratio) ? ratio : ENEMY_SPEED_START_RATIO;
+    const steps = Math.max(0, i);
+    let ratio = startRatio;
+    if (steps > 0) {
+      const scaled = startRatio * (growthFactor ** steps);
+      ratio = Number.isFinite(scaled) && scaled > 0 ? scaled : startRatio;
+    }
+    const clamped = Math.min(maxRatio, ratio);
+    table[i] = Number.isFinite(clamped) && clamped > 0 ? clamped : startRatio;
   }
   return Object.freeze(table);
 })();
