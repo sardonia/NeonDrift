@@ -1,0 +1,131 @@
+export function hexA(hex, a) {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  if (!m) return hex;
+  const r = parseInt(m[1], 16), g = parseInt(m[2], 16), b = parseInt(m[3], 16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+export function neonStroke(c, x1, y1, x2, y2, coreColor, glowColor, coreW, glowW) {
+  c.save();
+  c.lineCap = 'round';
+  c.globalCompositeOperation = 'lighter';
+  c.strokeStyle = glowColor;
+  c.shadowColor = glowColor;
+  c.shadowBlur = glowW;
+  c.globalAlpha = 0.18;
+  c.lineWidth = glowW * 1.8;
+  c.beginPath();
+  c.moveTo(x1, y1);
+  c.lineTo(x2, y2);
+  c.stroke();
+  c.shadowBlur = glowW * 0.6;
+  c.globalAlpha = 0.35;
+  c.lineWidth = glowW * 0.9;
+  c.beginPath();
+  c.moveTo(x1, y1);
+  c.lineTo(x2, y2);
+  c.stroke();
+  c.shadowBlur = 0;
+  c.globalAlpha = 1;
+  c.strokeStyle = coreColor;
+  c.lineWidth = coreW;
+  c.beginPath();
+  c.moveTo(x1, y1);
+  c.lineTo(x2, y2);
+  c.stroke();
+  c.restore();
+}
+export function drawHaloRing(c, x, y, r, ringWidth, core, glow) {
+  c.save();
+  c.translate(x, y);
+  c.globalCompositeOperation = 'lighter';
+  c.strokeStyle = glow;
+  c.shadowColor = glow;
+  c.shadowBlur = r * 0.9;
+  c.globalAlpha = 0.22;
+  c.lineWidth = r * 1.5;
+  c.beginPath();
+  c.arc(0, 0, r, 0, Math.PI * 2);
+  c.stroke();
+  c.shadowBlur = r * 0.45;
+  c.globalAlpha = 0.40;
+  c.lineWidth = r * 0.85;
+  c.beginPath();
+  c.arc(0, 0, r, 0, Math.PI * 2);
+  c.stroke();
+  c.shadowBlur = 0;
+  c.globalAlpha = 1;
+  c.strokeStyle = core;
+  c.lineWidth = ringWidth;
+  c.beginPath();
+  c.arc(0, 0, r, 0, Math.PI * 2);
+  c.stroke();
+  const prevComp = c.globalCompositeOperation;
+  c.globalCompositeOperation = 'source-over';
+  c.lineWidth = 1.2;
+  c.strokeStyle = 'rgba(0,0,0,0.55)';
+  c.beginPath();
+  c.arc(0, 0, r * 1.02, 0, Math.PI * 2);
+  c.stroke();
+  c.globalCompositeOperation = prevComp;
+  c.restore();
+}
+export function neonCapsule(c, x, y, w, h, core, glow) {
+  const r = Math.min(h / 2, 10);
+  c.save();
+  c.fillStyle = hexA(glow, 0.05);
+  c.shadowColor = glow;
+  c.shadowBlur = 14;
+  pathCapsule(c, x, y, w, h, r);
+  c.fill();
+  c.shadowBlur = 0;
+  const grd = c.createLinearGradient(x, y, x + w, y);
+  grd.addColorStop(0.0, hexA(core, 0.30));
+  grd.addColorStop(0.5, hexA('#ffffff', 0.42));
+  grd.addColorStop(1.0, hexA(core, 0.30));
+  c.fillStyle = grd;
+  pathCapsule(c, x, y, w, h, r);
+  c.fill();
+  c.lineWidth = 2;
+  c.strokeStyle = hexA(glow, 0.45);
+  pathCapsule(c, x, y, w, h, r);
+  c.stroke();
+  const prevComp = c.globalCompositeOperation;
+  c.globalCompositeOperation = 'source-over';
+  c.lineWidth = 1.4;
+  c.strokeStyle = 'rgba(0,0,0,0.55)';
+  pathCapsule(c, x, y, w, h, r);
+  c.stroke();
+  c.globalCompositeOperation = prevComp;
+  c.restore();
+}
+export function pathCapsule(c, x, y, w, h, r) {
+  c.beginPath();
+  c.moveTo(x + r, y);
+  c.lineTo(x + w - r, y);
+  c.arcTo(x + w, y, x + w, y + r, r);
+  c.lineTo(x + w, y + h - r);
+  c.arcTo(x + w, y + h, x + w - r, y + h, r);
+  c.lineTo(x + r, y + h);
+  c.arcTo(x, y + h, x, y + h - r, r);
+  c.lineTo(x, y + r);
+  c.arcTo(x, y, x + r, y, r);
+  c.closePath();
+}
+export function drawGlowDisc(c, x, y, r, glow, core) {
+  c.save();
+  c.translate(x, y);
+  c.globalCompositeOperation = 'lighter';
+  c.fillStyle = hexA(glow, 0.05);
+  c.shadowColor = glow;
+  c.shadowBlur = r * 2.0;
+  c.beginPath();
+  c.arc(0, 0, r, 0, Math.PI * 2);
+  c.fill();
+  c.shadowBlur = 0;
+  c.globalAlpha = 1.0;
+  c.fillStyle = core;
+  c.beginPath();
+  c.arc(0, 0, r * 0.85, 0, Math.PI * 2);
+  c.fill();
+  c.restore();
+}
