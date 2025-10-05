@@ -28,6 +28,44 @@ function updateProgress(state, delta) {
   // acceleration reflects the new level without relying on external
   // orchestrator updates.  Should the constants service be unavailable,
   // fall back to the linear ratio computation.
+  const computeFallbackEnemySpeed = (level) => {
+    if (typeof C.computeEnemySpeedRatio === 'function') {
+      try {
+        const ratio = C.computeEnemySpeedRatio(level);
+        if (Number.isFinite(ratio)) {
+          return PLAYER_BASE_SPEED * ratio;
+        }
+      } catch (_) {}
+    }
+
+    const lvl = (() => {
+      const maxLevel = typeof C.MAX_LEVEL === 'number' && C.MAX_LEVEL > 0
+        ? C.MAX_LEVEL
+        : 1;
+      const numeric = Number(level);
+      if (!Number.isFinite(numeric)) {
+        return 1;
+      }
+      const floored = Math.floor(numeric);
+      if (!Number.isFinite(floored)) {
+        return 1;
+      }
+      return Math.max(1, Math.min(maxLevel, floored));
+    })();
+
+    const startRatio = typeof C.ENEMY_SPEED_START_RATIO === 'number'
+      ? C.ENEMY_SPEED_START_RATIO
+      : 0.60;
+    const growth = typeof C.ENEMY_SPEED_GROWTH_PER_LEVEL === 'number'
+      ? C.ENEMY_SPEED_GROWTH_PER_LEVEL
+      : 0.05;
+    const maxRatio = typeof C.ENEMY_SPEED_MAX_RATIO === 'number'
+      ? C.ENEMY_SPEED_MAX_RATIO
+      : 1.0;
+    const ratio = Math.min(maxRatio, startRatio + ((lvl - 1) * growth));
+    return PLAYER_BASE_SPEED * ratio;
+  };
+
   let ENEMY_SPEED = 0;
   try {
     if (C && typeof C.computeEnemySpeed === 'function') {
@@ -36,23 +74,14 @@ function updateProgress(state, delta) {
         ENEMY_SPEED = result;
       } else {
         // fall back to ratio if computeEnemySpeed returned non-finite
-        const baseRatio = 0.60;
-        const increment = 0.05;
-        const ratio = Math.min(1.0, baseRatio + (currentLevel - 1) * increment);
-        ENEMY_SPEED = PLAYER_BASE_SPEED * ratio;
+        ENEMY_SPEED = computeFallbackEnemySpeed(currentLevel);
       }
     } else {
-      // Fallback: start at 60% of the player's speed and add 5pp per level
-      const baseRatio = 0.60;
-      const increment = 0.05;
-      const ratio = Math.min(1.0, baseRatio + (currentLevel - 1) * increment);
-      ENEMY_SPEED = PLAYER_BASE_SPEED * ratio;
+      // Fallback: start at 60% of the player's speed and grow 5% per level.
+      ENEMY_SPEED = computeFallbackEnemySpeed(currentLevel);
     }
   } catch (_) {
-    const baseRatio = 0.60;
-    const increment = 0.05;
-    const ratio = Math.min(1.0, baseRatio + (currentLevel - 1) * increment);
-    ENEMY_SPEED = PLAYER_BASE_SPEED * ratio;
+    ENEMY_SPEED = computeFallbackEnemySpeed(currentLevel);
   }
   // Mirror the computed enemy speed back onto the mutable state so that
   // observers (e.g. debug overlay) can read the most recent value without

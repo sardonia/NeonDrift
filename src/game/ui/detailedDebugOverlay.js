@@ -180,17 +180,51 @@ export function initDebugOverlay({
         const lvlNum = Number(levelRaw);
         if (!Number.isNaN(lvlNum)) {
           const pSpeed = (typeof C.PLAYER_BASE_SPEED === 'number') ? C.PLAYER_BASE_SPEED : 0;
-          // If the game state exposes a numeric enemySpeed (set by the orchestrator), use it directly.
-          let eSpeedVal = 0;
-          if (typeof gs.enemySpeed === 'number' && Number.isFinite(gs.enemySpeed)) {
+          // Prefer computing the speed directly from the constants service so
+          // the overlay matches the runtime behaviour.  If that fails, fall
+          // back to any value mirrored on the mutable game state, and finally
+          // recompute locally using the known growth curve.
+          let eSpeedVal;
+          if (typeof C.computeEnemySpeed === 'function') {
+            const computed = C.computeEnemySpeed(lvlNum);
+            if (Number.isFinite(computed)) {
+              eSpeedVal = computed;
+            }
+          }
+          if (eSpeedVal == null && typeof gs.enemySpeed === 'number' && Number.isFinite(gs.enemySpeed)) {
             eSpeedVal = gs.enemySpeed;
-          } else if (typeof C.computeEnemySpeed === 'function') {
-            eSpeedVal = C.computeEnemySpeed(lvlNum) || 0;
-          } else {
-            // Fallback mirrors constants: start 60% and +5pp per level up to 100%
-            const baseRatio = 0.60;
-            const increment = 0.05;
-            const ratio = Math.min(1.0, baseRatio + (lvlNum - 1) * increment);
+          }
+          if (eSpeedVal == null) {
+            let ratio = null;
+            if (typeof C.computeEnemySpeedRatio === 'function') {
+              try {
+                const computedRatio = C.computeEnemySpeedRatio(lvlNum);
+                if (Number.isFinite(computedRatio)) {
+                  ratio = computedRatio;
+                }
+              } catch (_) {}
+            }
+            if (ratio == null && Array.isArray(C.ENEMY_SPEED_RATIOS) && C.ENEMY_SPEED_RATIOS.length) {
+              const table = C.ENEMY_SPEED_RATIOS;
+              const idx = Math.max(0, Math.min(table.length - 1, Math.floor(lvlNum) - 1));
+              const tableRatio = table[idx];
+              if (Number.isFinite(tableRatio)) {
+                ratio = tableRatio;
+              }
+            }
+            if (ratio == null) {
+              const startRatio = typeof C.ENEMY_SPEED_START_RATIO === 'number'
+                ? C.ENEMY_SPEED_START_RATIO
+                : 0.60;
+              const growth = typeof C.ENEMY_SPEED_GROWTH_PER_LEVEL === 'number'
+                ? C.ENEMY_SPEED_GROWTH_PER_LEVEL
+                : 0.05;
+              const maxRatio = typeof C.ENEMY_SPEED_MAX_RATIO === 'number'
+                ? C.ENEMY_SPEED_MAX_RATIO
+                : 1.0;
+              const steps = Math.max(0, Math.floor(lvlNum) - 1);
+              ratio = Math.min(maxRatio, startRatio + (growth * steps));
+            }
             eSpeedVal = ratio * pSpeed;
           }
           const ratio = pSpeed > 0 ? (eSpeedVal / pSpeed) : 0;
