@@ -27,7 +27,7 @@ function updateProgress(state, delta) {
   // state.  This ensures that as soon as the level changes, the enemy
   // acceleration reflects the new level without relying on external
   // orchestrator updates.  Should the constants service be unavailable,
-  // fall back to the linear ratio computation.
+  // fall back to the shared multiplicative ratio computation.
   const computeFallbackEnemySpeed = (level) => {
     if (typeof C.computeEnemySpeedRatio === 'function') {
       try {
@@ -53,16 +53,22 @@ function updateProgress(state, delta) {
       return Math.max(1, Math.min(maxLevel, floored));
     })();
 
-    const startRatio = typeof C.ENEMY_SPEED_START_RATIO === 'number'
+    const startRatio = typeof C.ENEMY_SPEED_START_RATIO === 'number' && C.ENEMY_SPEED_START_RATIO > 0
       ? C.ENEMY_SPEED_START_RATIO
       : 0.60;
     const growth = typeof C.ENEMY_SPEED_GROWTH_PER_LEVEL === 'number'
       ? C.ENEMY_SPEED_GROWTH_PER_LEVEL
       : 0.05;
-    const maxRatio = typeof C.ENEMY_SPEED_MAX_RATIO === 'number'
+    const growthFactorRaw = 1 + growth;
+    const growthFactor = Number.isFinite(growthFactorRaw) && growthFactorRaw > 0
+      ? growthFactorRaw
+      : 1.05;
+    const maxRatio = typeof C.ENEMY_SPEED_MAX_RATIO === 'number' && C.ENEMY_SPEED_MAX_RATIO > 0
       ? C.ENEMY_SPEED_MAX_RATIO
       : 1.0;
-    const ratio = Math.min(maxRatio, startRatio + ((lvl - 1) * growth));
+    const steps = Math.max(0, lvl - 1);
+    const scaled = startRatio * (growthFactor ** steps);
+    const ratio = Math.min(maxRatio, Number.isFinite(scaled) && scaled > 0 ? scaled : startRatio);
     return PLAYER_BASE_SPEED * ratio;
   };
 
@@ -77,7 +83,7 @@ function updateProgress(state, delta) {
         ENEMY_SPEED = computeFallbackEnemySpeed(currentLevel);
       }
     } else {
-      // Fallback: start at 60% of the player's speed and grow 5% per level.
+      // Fallback: start at 60% of the player's speed and grow 5% per level (compounding).
       ENEMY_SPEED = computeFallbackEnemySpeed(currentLevel);
     }
   } catch (_) {
