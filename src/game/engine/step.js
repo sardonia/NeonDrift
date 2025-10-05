@@ -29,10 +29,40 @@ function updateProgress(state, delta) {
   // orchestrator updates.  Should the constants service be unavailable,
   // fall back to the linear ratio computation.
   const computeFallbackEnemySpeed = (level) => {
-    const baseRatio = 0.60;
-    const growth = 0.05;
-    const steps = Math.max(0, level - 1);
-    const ratio = Math.min(1.0, baseRatio * Math.pow(1 + growth, steps));
+    if (typeof C.computeEnemySpeedRatio === 'function') {
+      try {
+        const ratio = C.computeEnemySpeedRatio(level);
+        if (Number.isFinite(ratio)) {
+          return PLAYER_BASE_SPEED * ratio;
+        }
+      } catch (_) {}
+    }
+
+    const lvl = (() => {
+      const maxLevel = typeof C.MAX_LEVEL === 'number' && C.MAX_LEVEL > 0
+        ? C.MAX_LEVEL
+        : 1;
+      const numeric = Number(level);
+      if (!Number.isFinite(numeric)) {
+        return 1;
+      }
+      const floored = Math.floor(numeric);
+      if (!Number.isFinite(floored)) {
+        return 1;
+      }
+      return Math.max(1, Math.min(maxLevel, floored));
+    })();
+
+    const startRatio = typeof C.ENEMY_SPEED_START_RATIO === 'number'
+      ? C.ENEMY_SPEED_START_RATIO
+      : 0.60;
+    const growth = typeof C.ENEMY_SPEED_GROWTH_PER_LEVEL === 'number'
+      ? C.ENEMY_SPEED_GROWTH_PER_LEVEL
+      : 0.05;
+    const maxRatio = typeof C.ENEMY_SPEED_MAX_RATIO === 'number'
+      ? C.ENEMY_SPEED_MAX_RATIO
+      : 1.0;
+    const ratio = Math.min(maxRatio, startRatio + ((lvl - 1) * growth));
     return PLAYER_BASE_SPEED * ratio;
   };
 

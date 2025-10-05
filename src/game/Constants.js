@@ -19,6 +19,9 @@ export const BOOST_MULT = BOOST_MULT_BASE;
 export const STARTING_LEVEL = 1;
 export const PLAYER_ENGINE_INTENSITY_BASE = 0.55 + (12 / 12) * 0.40;
 export const ENEMY_ENGINE_INTENSITY_BASE  = PLAYER_ENGINE_INTENSITY_BASE * 0.96;
+export const ENEMY_SPEED_START_RATIO = 0.60;
+export const ENEMY_SPEED_GROWTH_PER_LEVEL = 0.05;
+export const ENEMY_SPEED_MAX_RATIO = 1.0;
 export const DIR_DELTAS = {
   up: [0, -1],
   right: [1, 0],
@@ -26,25 +29,43 @@ export const DIR_DELTAS = {
   left: [-1, 0]
 };
 export const MAX_SUBSTEPS = 4;
-export function computeEnemySpeed(level) {
-  // Adjust enemy speed to scale by a fixed percentage each round.
-  // Previously, the enemy speed increased linearly with the level which
-  // equated to a fixed additive increase each level.  This caused the enemy
-  // to remain roughly 60% of the player's speed for most of the game, rather
-  // than accelerating by a constant percentage per level.
-  //
-  // To ensure the enemy speed scales by a constant *percentage* each round,
-  // multiply the starting ratio (60% of the player's speed) by a growth
-  // factor of 1.05 for every level beyond the first.  This yields an enemy
-  // that gains 5% additional speed each level while remaining capped at the
-  // player's base speed.
-  const lvl = Math.max(1, Math.min(MAX_LEVEL, level | 0));
-  const startRatio = 0.60;
-  const growthPerLevel = 0.05;
-  const steps = Math.max(0, lvl - 1);
-  const growthFactor = 1 + growthPerLevel;
-  // Compute the ratio for the given level.  Clamp to a maximum of 1.0 to
-  // avoid exceeding the player's speed at extremely high levels.
-  const ratio = Math.min(1.0, startRatio * Math.pow(growthFactor, steps));
-  return PLAYER_BASE_SPEED * ratio;
+// Precompute the additive 5% growth curve so every consumer shares the same table.
+const ENEMY_SPEED_RATIO_TABLE = (() => {
+  const table = new Array(MAX_LEVEL);
+  for (let i = 0; i < MAX_LEVEL; i += 1) {
+    const steps = i;
+    const rawRatio = ENEMY_SPEED_START_RATIO + (ENEMY_SPEED_GROWTH_PER_LEVEL * steps);
+    const ratio = Math.min(ENEMY_SPEED_MAX_RATIO, rawRatio);
+    table[i] = Number.isFinite(ratio) ? ratio : ENEMY_SPEED_START_RATIO;
+  }
+  return Object.freeze(table);
+})();
+
+export const ENEMY_SPEED_RATIOS = ENEMY_SPEED_RATIO_TABLE;
+
+function normalizeLevel(level) {
+  const numericLevel = Number(level);
+  if (!Number.isFinite(numericLevel)) {
+    return 1;
+  }
+  const floored = Math.floor(numericLevel);
+  if (!Number.isFinite(floored)) {
+    return 1;
+  }
+  return Math.max(1, Math.min(MAX_LEVEL, floored));
+}
+
+export function computeEnemySpeedRatio(level) {
+  const lvl = normalizeLevel(level);
+  const ratio = ENEMY_SPEED_RATIO_TABLE[lvl - 1];
+  return Number.isFinite(ratio) ? ratio : ENEMY_SPEED_START_RATIO;
+}
+
+// Return the enemy speed for the provided level as an absolute value, allowing
+// optional overrides of the base player speed for simulations.
+export function computeEnemySpeed(level, playerBaseSpeed = PLAYER_BASE_SPEED) {
+  const base = Number(playerBaseSpeed);
+  const baseSpeed = Number.isFinite(base) && base > 0 ? base : PLAYER_BASE_SPEED;
+  const ratio = computeEnemySpeedRatio(level);
+  return baseSpeed * ratio;
 }

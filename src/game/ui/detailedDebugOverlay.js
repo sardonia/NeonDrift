@@ -195,11 +195,36 @@ export function initDebugOverlay({
             eSpeedVal = gs.enemySpeed;
           }
           if (eSpeedVal == null) {
-            // Fallback mirrors constants: start at 60% and grow by 5% per level up to 100%.
-            const baseRatio = 0.60;
-            const growth = 0.05;
-            const steps = Math.max(0, lvlNum - 1);
-            const ratio = Math.min(1.0, baseRatio * Math.pow(1 + growth, steps));
+            let ratio = null;
+            if (typeof C.computeEnemySpeedRatio === 'function') {
+              try {
+                const computedRatio = C.computeEnemySpeedRatio(lvlNum);
+                if (Number.isFinite(computedRatio)) {
+                  ratio = computedRatio;
+                }
+              } catch (_) {}
+            }
+            if (ratio == null && Array.isArray(C.ENEMY_SPEED_RATIOS) && C.ENEMY_SPEED_RATIOS.length) {
+              const table = C.ENEMY_SPEED_RATIOS;
+              const idx = Math.max(0, Math.min(table.length - 1, Math.floor(lvlNum) - 1));
+              const tableRatio = table[idx];
+              if (Number.isFinite(tableRatio)) {
+                ratio = tableRatio;
+              }
+            }
+            if (ratio == null) {
+              const startRatio = typeof C.ENEMY_SPEED_START_RATIO === 'number'
+                ? C.ENEMY_SPEED_START_RATIO
+                : 0.60;
+              const growth = typeof C.ENEMY_SPEED_GROWTH_PER_LEVEL === 'number'
+                ? C.ENEMY_SPEED_GROWTH_PER_LEVEL
+                : 0.05;
+              const maxRatio = typeof C.ENEMY_SPEED_MAX_RATIO === 'number'
+                ? C.ENEMY_SPEED_MAX_RATIO
+                : 1.0;
+              const steps = Math.max(0, Math.floor(lvlNum) - 1);
+              ratio = Math.min(maxRatio, startRatio + (growth * steps));
+            }
             eSpeedVal = ratio * pSpeed;
           }
           const ratio = pSpeed > 0 ? (eSpeedVal / pSpeed) : 0;
