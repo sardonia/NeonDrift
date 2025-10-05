@@ -28,25 +28,23 @@ export const DIR_DELTAS = {
 export const MAX_SUBSTEPS = 4;
 export function computeEnemySpeed(level) {
   // Adjust enemy speed to scale by a fixed percentage each round.
-  // Previously, the enemy speed increased linearly with the level:
-  //    base = 0.30 + (level - 1) * (0.20 / 9);
-  // which equated to a fixed additive increase each level.  This caused the
-  // enemy to remain roughly 60% of the player's speed for most of the game,
-  // rather than accelerating by a constant percentage per level.
+  // Previously, the enemy speed increased linearly with the level which
+  // equated to a fixed additive increase each level.  This caused the enemy
+  // to remain roughly 60% of the player's speed for most of the game, rather
+  // than accelerating by a constant percentage per level.
   //
   // To ensure the enemy speed scales by a constant *percentage* each round,
-  // use exponential interpolation between the starting ratio (60% of the
-  // player's speed) and a final ratio (100% of the player's speed) at the
-  // maximum level.  Each level multiplies the ratio by a constant factor,
-  // resulting in perceptible acceleration as levels increase.
+  // multiply the starting ratio (60% of the player's speed) by a growth
+  // factor of 1.05 for every level beyond the first.  This yields an enemy
+  // that gains 5% additional speed each level while remaining capped at the
+  // player's base speed.
   const lvl = Math.max(1, Math.min(MAX_LEVEL, level | 0));
-  // On level 1 the enemy moves at 60% of the player's base speed.
-  // Increase this ratio by a fixed 5 percentage points on each subsequent level,
-  // capping at 100% of the player's speed.  This means the enemy will be at
-  // 65% on level 2, 70% on level 3, … up to parity with the player by level 9.
   const startRatio = 0.60;
-  const increment  = 0.05;
-  // Compute the ratio for the given level.  Clamp to a maximum of 1.0.
-  const ratio = Math.min(1.0, startRatio + (lvl - 1) * increment);
+  const growthPerLevel = 0.05;
+  const steps = Math.max(0, lvl - 1);
+  const growthFactor = 1 + growthPerLevel;
+  // Compute the ratio for the given level.  Clamp to a maximum of 1.0 to
+  // avoid exceeding the player's speed at extremely high levels.
+  const ratio = Math.min(1.0, startRatio * Math.pow(growthFactor, steps));
   return PLAYER_BASE_SPEED * ratio;
 }
